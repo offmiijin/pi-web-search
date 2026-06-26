@@ -12,7 +12,7 @@ Registers three tools:
 
 ```bash
 # npm
-pi install npm:pi-web-search
+pi install npm:@offmiijin/pi-web-search
 
 # git
 pi install git:github.com/offmiijin/pi-web-search

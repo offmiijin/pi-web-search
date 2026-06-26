@@ -1,5 +1,5 @@
 {
-  "name": "pi-web-search",
+  "name": "@offmiijin/pi-web-search",
   "version": "1.0.0",
   "description": "Pi extension — search the web via DuckDuckGo, Bing, and Brave. Returns structured results for LLM consumption.",
   "keywords": [
