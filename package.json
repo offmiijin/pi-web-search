@@ -1,14 +1,14 @@
 {
   "name": "@offmiijin/pi-web-search",
   "version": "1.0.0",
-  "description": "Pi extension — search the web via DuckDuckGo, Bing, and Brave. Returns structured results for LLM consumption.",
+  "description": "Pi extension — search the web via Tavily, Exa, and Serper.dev APIs. Returns structured results for LLM consumption.",
   "keywords": [
     "pi-package",
     "pi-extension",
     "web-search",
-    "duckduckgo",
-    "bing",
-    "brave"
+    "tavily",
+    "exa",
+    "serper"
   ],
   "repository": {
     "type": "git",
