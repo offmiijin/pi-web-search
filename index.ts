@@ -1,9 +1,11 @@
 /**
  * Web Search Extension — Entry Point
  *
- * Registers two tools:
- *   1. web_search  — search DuckDuckGo for URLs
- *   2. web_fetch   — fetch page content from URLs (WIP, next session)
+ * Registers:
+ *   - /web_search command (configure API keys)
+ *   - web_search tool (Tavily → Exa → Serper.dev cascade)
+ *   - web_fetch tool
+ *   - web_agent tool (research orchestrator)
  */
 
 import { Type } from "typebox";
@@ -11,15 +13,111 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { search } from "./search";
 import { fetchPages } from "./fetch";
 import { registerWebAgent } from "./agent";
+import { getConfigSummary, setKey, getConfiguredProviders } from "./config";
 
 export default function (pi: ExtensionAPI) {
+	// ── Command: /web_search ───────────────────────────────────────────
+	pi.registerCommand("web_search", {
+		description:
+			"Configure search API keys. Examples:\n" +
+			"  /web_search                         → show current keys\n" +
+			"  /web_search config                  → interactive setup (pick provider, enter key)\n" +
+			"  /web_search config serper <key>     → save Serper.dev key directly\n" +
+			"  /web_search config exa <key>        → save Exa key directly\n" +
+			"  /web_search config tavily <key>     → save Tavily key directly\n" +
+			"Providers: serper (2.5k/mo free), exa (1k/mo free), tavily (1k/mo free)",
+		handler: async (args, ctx) => {
+			const parts = (args ?? "").trim().split(/\s+/);
+
+			// /web_search — show status
+			if (parts.length === 0 || parts[0] === "") {
+				ctx.ui.notify(getConfigSummary(), "info");
+				return;
+			}
+
+			// /web_search config ...
+			if (parts[0] === "config") {
+				// /web_search config <provider> <key> — direct
+				if (parts.length >= 3) {
+					const [, provider, ...rest] = parts;
+					const key = rest.join(" ");
+					try {
+						setKey(provider, key);
+						const configured = getConfiguredProviders();
+						ctx.ui.notify(
+							`✅ ${provider} API key saved.\nConfigured: ${configured.join(", ") || "none"}`,
+							"info",
+						);
+					} catch (err) {
+						const msg = err instanceof Error ? err.message : String(err);
+						ctx.ui.notify(`❌ ${msg}`, "error");
+					}
+					return;
+				}
+
+				// /web_search config — interactive setup
+				if (!ctx.hasUI) {
+					ctx.ui.notify(
+						"Usage: /web_search config <serper|exa|tavily> <key>\n" +
+						"Or set env vars: SERPER_API_KEY, EXA_API_KEY, TAVILY_API_KEY",
+						"info",
+					);
+					return;
+				}
+
+				const provider = await ctx.ui.select(
+					"Select search provider to configure:",
+					[
+						{ value: "serper", label: "Serper.dev — 2,500 queries/mo, no CC" },
+						{ value: "exa", label: "Exa — 1,000 queries/mo, requires CC" },
+						{ value: "tavily", label: "Tavily — 1,000 queries/mo, requires CC" },
+					],
+				);
+				if (!provider) return;
+
+				const key = await ctx.ui.input(
+					`Enter API key for ${provider}:`,
+					"",
+				);
+				if (!key || !key.trim()) {
+					ctx.ui.notify("❌ No key provided. Cancelled.", "error");
+					return;
+				}
+
+				try {
+					setKey(provider, key.trim());
+					const configured = getConfiguredProviders();
+					ctx.ui.notify(
+						`✅ ${provider} API key saved.\nConfigured: ${configured.join(", ") || "none"}`,
+						"info",
+					);
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					ctx.ui.notify(`❘ ${msg}`, "error");
+				}
+				return;
+			}
+
+			// Unknown subcommand — show help
+			const configured = getConfiguredProviders();
+			ctx.ui.notify(
+				`Unknown subcommand: ${parts[0]}\n\n` +
+				`Usage: /web_search config [<provider> <key>]\n` +
+				`Providers: serper, exa, tavily\n` +
+				`Configured: ${configured.join(", ") || "none"}`,
+				"error",
+			);
+		},
+	});
+
 	// ── Tool: web_search ───────────────────────────────────────────────
 	pi.registerTool({
 		name: "web_search",
 		label: "Web Search",
 		description:
-			"Search the web via DuckDuckGo. Returns up to 10 results (title, URL, snippet). " +
-			"Use to find current information, docs, or any web content. " +
+			"Search the web via Tavily, Exa, or Serper.dev API (auto-fallback cascade). " +
+			"Returns up to 10 results (title, URL, snippet). " +
+			"Configure API keys via /web_search config <provider> <key> or env vars. " +
 			"Call multiple times with different queries to gather diverse sources, " +
 			"then pass the URLs to web_fetch for full content extraction.",
 
@@ -34,34 +132,28 @@ export default function (pi: ExtensionAPI) {
 
 			const output = await search(query, signal ?? undefined);
 
-			// Lines always start with header — success OR failure
 			const lines: string[] = [];
 
 			if (output.results.length === 0) {
-				// ── Failure: same structure as success, explains why ─────
 				lines.push(`## 🔍 Results for "${query}" (failed)`);
 				lines.push("");
 				lines.push(output.error ?? "No results returned.");
 				lines.push("");
 				lines.push("Suggestions:");
+				lines.push("- Configure an API key: /web_search config <serper|exa|tavily> <key>");
+				lines.push("- Or set env vars: SERPER_API_KEY, EXA_API_KEY, TAVILY_API_KEY");
 				lines.push("- Try a different query with more specific terms");
-				lines.push("- DuckDuckGo may be blocking repeated requests — wait before retrying");
-				lines.push("- Check your internet connection");
 
 				return {
 					content: [{ type: "text" as const, text: lines.join("\n") }],
-					// Note: isError intentionally omitted — error is communicated
-					// via content in the same format as success.
 					details: { query: output.query, source: output.source, results: [], error: output.error },
 				};
 			}
 
-			// ── Success ───────────────────────────────────────────────
 			lines.push(`## 🔍 Results for "${query}" (${output.source})`);
 			lines.push("");
 
 			if (output.error) {
-				// Fallback: html worked but lite failed — user should know
 				lines.push(`> Note: ${output.error}`);
 				lines.push("");
 			}
@@ -143,7 +235,6 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			// Build human-readable summary — same format whether success or failure
 			const lines: string[] = [];
 
 			if (output.succeeded === 0 && output.failed > 0) {
