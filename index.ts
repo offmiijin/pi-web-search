@@ -67,16 +67,14 @@ export default function (pi: ExtensionAPI) {
 
 				const provider = await ctx.ui.select(
 					"Select search provider to configure:",
-					[
-						{ value: "serper", label: "Serper.dev — 2,500 queries/mo, no CC" },
-						{ value: "exa", label: "Exa — 1,000 queries/mo, requires CC" },
-						{ value: "tavily", label: "Tavily — 1,000 queries/mo, requires CC" },
-					],
+					["serper (2.5k/mo free)", "exa (1k/mo free)", "tavily (1k/mo free)"],
 				);
 				if (!provider) return;
+				// Extract provider name from label (text before first space)
+				const providerName = provider.split(/\s/)[0];
 
 				const key = await ctx.ui.input(
-					`Enter API key for ${provider}:`,
+					`Enter API key for ${providerName}:`,
 					"",
 				);
 				if (!key || !key.trim()) {
@@ -85,10 +83,10 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				try {
-					setKey(provider, key.trim());
+					setKey(providerName, key.trim());
 					const configured = getConfiguredProviders();
 					ctx.ui.notify(
-						`✅ ${provider} API key saved.\nConfigured: ${configured.join(", ") || "none"}`,
+						`✅ ${providerName} API key saved.\nConfigured: ${configured.join(", ") || "none"}`,
 						"info",
 					);
 				} catch (err) {
