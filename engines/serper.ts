@@ -67,7 +67,7 @@ export async function searchSerper(
 		const results: SearchResult[] = data.organic.map((r) => ({
 			title: r.title,
 			url: r.link,
-			snippet: r.snippet ?? "",
+			snippet: "",
 		}));
 
 		return { results };

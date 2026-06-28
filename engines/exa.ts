@@ -48,7 +48,6 @@ export async function searchExa(
 				query,
 				numResults: 10,
 				type: "auto",
-				contents: { text: { maxCharacters: 2000 } },
 			}),
 			signal: controller.signal,
 		});
@@ -76,7 +75,7 @@ export async function searchExa(
 			.map((r) => ({
 				title: r.title ?? r.url,
 				url: r.url,
-				snippet: (r.text ?? "").replace(/\s+/g, " ").trim().slice(0, 500),
+				snippet: "",
 			}));
 
 		return { results };

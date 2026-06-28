@@ -21,7 +21,6 @@ interface TavilyResult {
 
 interface TavilyResponse {
 	results?: TavilyResult[];
-	answer?: string;
 	error?: string;
 }
 
@@ -49,7 +48,7 @@ export async function searchTavily(
 				query,
 				max_results: 10,
 				search_depth: "basic",
-				include_answer: "basic",
+				include_answer: false,
 				include_raw_content: false,
 			}),
 			signal: controller.signal,
@@ -78,7 +77,7 @@ export async function searchTavily(
 			.map((r) => ({
 				title: r.title ?? r.url,
 				url: r.url,
-				snippet: (r.content ?? "").replace(/\s+/g, " ").trim().slice(0, 500),
+				snippet: "",
 			}));
 
 		return { results };

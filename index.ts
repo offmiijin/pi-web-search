@@ -114,10 +114,10 @@ export default function (pi: ExtensionAPI) {
 		label: "Web Search",
 		description:
 			"Search the web via Tavily, Exa, or Serper.dev API (auto-fallback cascade). " +
-			"Returns up to 10 results (title, URL, snippet). " +
+			"Returns up to 10 results (title, URL only — no content). " +
+			"After collecting URLs, call web_fetch to get full page content. " +
 			"Configure API keys via /web_search config <provider> <key> or env vars. " +
-			"Call multiple times with different queries to gather diverse sources, " +
-			"then pass the URLs to web_fetch for full content extraction.",
+			"Call multiple times with different queries to gather diverse sources.",
 
 		parameters: Type.Object({
 			query: Type.String({
@@ -159,7 +159,6 @@ export default function (pi: ExtensionAPI) {
 			for (const [i, r] of output.results.entries()) {
 				lines.push(`${i + 1}. **${r.title}**`);
 				lines.push(`   URL: ${r.url}`);
-				lines.push(`   ${r.snippet}`);
 			}
 
 			return {
